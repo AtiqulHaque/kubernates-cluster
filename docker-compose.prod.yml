@@ -1,0 +1,84 @@
+# Production stack for AWS (single EC2 / Lightsail instance)
+# Usage: docker compose -f docker-compose.prod.yml up -d --build
+
+services:
+  postgres:
+    image: postgres:14
+    restart: always
+    environment:
+      POSTGRES_PASSWORD: ${PGPASSWORD:-postgres_password}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+
+  redis:
+    image: redis:7-alpine
+    restart: always
+
+  api:
+    image: atiqulhaque/multi-server:latest
+    build:
+      context: ./server
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - postgres
+      - redis
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      PGUSER: postgres
+      PGHOST: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: ${PGPASSWORD:-postgres_password}
+      PGPORT: 5432
+
+  nest-api:
+    image: atiqulhaque/multi-nest-api:latest
+    build:
+      context: ./nestjs-server
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - postgres
+    environment:
+      PGUSER: postgres
+      PGHOST: postgres
+      PGDATABASE: postgres
+      PGPASSWORD: ${PGPASSWORD:-postgres_password}
+      PGPORT: 5432
+      PORT: 3001
+
+  worker:
+    image: atiqulhaque/multi-worker:latest
+    build:
+      context: ./worker
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - redis
+    environment:
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+
+  client:
+    image: atiqulhaque/multi-client:latest
+    build:
+      context: ./client
+      dockerfile: Dockerfile
+    restart: always
+
+  nginx:
+    image: atiqulhaque/multi-nginx:latest
+    build:
+      context: ./nginx
+      dockerfile: Dockerfile
+    restart: always
+    depends_on:
+      - api
+      - nest-api
+      - client
+    ports:
+      - '80:80'
+
+volumes:
+  postgres_data:

@@ -9,6 +9,7 @@ services:
   nginx:
     depends_on:
       - api
+      - nest-api
       - client
     restart: always
     build:
@@ -20,6 +21,9 @@ services:
     build:
       dockerfile: Dockerfile.dev
       context: ./server
+    depends_on:
+      - postgres
+      - redis
     volumes:
       - /app/node_modules
       - ./server:/app
@@ -31,11 +35,29 @@ services:
       - PGDATABASE=postgres
       - PGPASSWORD=postgres_password
       - PGPORT=5432
+  nest-api:
+    build:
+      dockerfile: Dockerfile.dev
+      context: ./nestjs-server
+    depends_on:
+      - postgres
+    volumes:
+      - /app/node_modules
+      - ./nestjs-server:/app
+    environment:
+      - PGUSER=postgres
+      - PGHOST=postgres
+      - PGDATABASE=postgres
+      - PGPASSWORD=postgres_password
+      - PGPORT=5432
+      - PORT=3001
   client:
     stdin_open: true
     build:
       dockerfile: Dockerfile.dev
       context: ./client
+    environment:
+      - WDS_SOCKET_PORT=3050
     volumes:
       - /app/node_modules
       - ./client:/app
@@ -43,6 +65,8 @@ services:
     build:
       dockerfile: Dockerfile.dev
       context: ./worker
+    depends_on:
+      - redis
     volumes:
       - /app/node_modules
       - ./worker:/app
