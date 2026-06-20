@@ -51,7 +51,8 @@ complex/
 ├── k8s/             # Kubernetes manifests
 ├── docker-compose.yml
 ├── docker-compose.prod.yml   # Production stack for AWS (single EC2)
-├── AWS-DEPLOY.md             # Minimum-cost AWS install guide
+├── AWS-DEPLOY.md             # AWS install — Docker Compose on EC2
+├── AWS-K3S-DEPLOY.md         # AWS install — single-node k3s on EC2
 ├── Makefile         # Kubernetes helper commands
 └── README.md
 ```
@@ -69,6 +70,27 @@ Quick start on EC2:
 ```bash
 export PGPASSWORD='your-strong-password'
 docker compose -f docker-compose.prod.yml up -d --build
+```
+
+App runs on **http://YOUR_EC2_PUBLIC_IP** (port 80).
+
+---
+
+## Option 4: AWS — k3s on EC2 (Kubernetes)
+
+Run the same `k8s/` manifests on a **single EC2 instance** with k3s (~$17–20/month). Uses Docker Hub images and nginx ingress.
+
+See **[AWS-K3S-DEPLOY.md](./AWS-K3S-DEPLOY.md)** for the full step-by-step guide.
+
+Quick overview:
+
+```bash
+# Mac — push amd64 images (required for t3 EC2)
+make publish-amd64
+
+# EC2 — install k3s, ingress, deploy
+make create-secret PGPASSWORD='your-strong-password'
+make deploy && make wait
 ```
 
 App runs on **http://YOUR_EC2_PUBLIC_IP** (port 80).

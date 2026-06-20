@@ -7,6 +7,8 @@ SECRET_NAME   := pgpassword
 NAMESPACE     ?=
 DOCKER_USER   ?= atiqulhaque
 IMAGE_TAG     ?= latest
+PLATFORM      ?= linux/amd64
+BUILDX        ?= docker buildx build --platform $(PLATFORM)
 
 KUBECTL       := kubectl $(if $(NAMESPACE),-n $(NAMESPACE),)
 
@@ -172,6 +174,23 @@ push: ## Push all images to Docker Hub (run 'docker login' first)
 
 .PHONY: publish
 publish: build push ## Build and push all images to Docker Hub
+
+.PHONY: setup-buildx
+setup-buildx: ## Create/use a buildx builder (required for cross-platform builds)
+	@docker buildx inspect multiarch >/dev/null 2>&1 || \
+		docker buildx create --name multiarch --use
+	@docker buildx use multiarch
+
+.PHONY: publish-amd64
+publish-amd64: setup-buildx ## Build and push linux/amd64 images for AWS EC2 (t3/t2)
+	$(BUILDX) -t $(CLIENT_IMAGE) ./client --push
+	$(BUILDX) -t $(SERVER_IMAGE) ./server --push
+	$(BUILDX) -t $(WORKER_IMAGE) ./worker --push
+	$(BUILDX) -t $(NESTJS_IMAGE) ./nestjs-server --push
+	$(BUILDX) -t $(NGINX_IMAGE) ./nginx --push
+	@echo ""
+	@echo "Pushed amd64 images for EC2. On the server run:"
+	@echo "  kubectl rollout restart deployment/client-deployment deployment/server-deployment deployment/worker-deployment deployment/nestjs-deployment"
 
 .PHONY: minikube-build
 minikube-build: ## Build images inside minikube's Docker daemon

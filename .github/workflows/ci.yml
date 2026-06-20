@@ -1,0 +1,52 @@
+name: CI
+
+on:
+  push:
+    branches: [main, master]
+  pull_request:
+    branches: [main, master]
+
+env:
+  DOCKER_USER: atiqulhaque
+
+jobs:
+  test:
+    name: Test client
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Run React tests
+        run: |
+          docker build -t client-test -f ./client/Dockerfile.dev ./client
+          docker run --rm -e CI=true client-test npm test -- --watchAll=false
+
+  publish:
+    name: Build and push Docker images
+    needs: test
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Log in to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Build and push amd64 images
+        run: make publish-amd64 DOCKER_USER=${{ env.DOCKER_USER }} IMAGE_TAG=latest
+
+      - name: Tag images with commit SHA
+        run: |
+          for repo in multi-client multi-server multi-worker multi-nest-api multi-nginx; do
+            docker buildx imagetools create \
+              -t ${{ env.DOCKER_USER }}/${repo}:${{ github.sha }} \
+              ${{ env.DOCKER_USER }}/${repo}:latest
+          done
