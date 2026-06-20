@@ -23,7 +23,7 @@ jobs:
           docker run --rm -e CI=true client-test npm test -- --watchAll=false
 
   publish:
-    name: Build and push Docker images
+    name: Build and push Docker images to Docker Hub
     needs: test
     if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/master')
     runs-on: ubuntu-latest
